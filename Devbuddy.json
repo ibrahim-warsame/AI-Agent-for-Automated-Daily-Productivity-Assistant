@@ -1,0 +1,277 @@
+{
+  "name": "Devbuddy",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -352,
+        16
+      ],
+      "id": "097452c9-0a9d-4fee-970c-ac7d9092e0fe",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect all input items (from merged events + tasks)\nconst allItems = $input.all();\n\n// Separate events and tasks\nconst events = [];\nconst tasks = [];\n\nfor (const item of allItems) {\n  const data = item.json;\n\n  // Detect if it's an event or task based on common fields\n  if (data.start && data.summary) {\n    events.push({\n      title: data.summary,\n      start: data.start.dateTime || data.start.date || \"No start time\",\n      end: data.end?.dateTime || data.end?.date || \"No end time\",\n    });\n  } else if (data.title || data.notes) {\n    tasks.push({\n      title: data.title,\n      status: data.status || \"unknown\",\n    });\n  }\n}\n\n// Format date & time (optional enhancement)\nfunction formatDate(dateStr) {\n  try {\n    return new Date(dateStr).toLocaleString();\n  } catch {\n    return dateStr;\n  }\n}\n\n// Return structured data for next node\nreturn [\n  {\n    json: {\n      events: events.map(e => ({\n        title: e.title,\n        start: formatDate(e.start),\n        end: formatDate(e.end)\n      })),\n      tasks: tasks,\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        16
+      ],
+      "id": "1de94c9f-85ea-47b4-8808-249ef7d6b921",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        176,
+        16
+      ],
+      "id": "395ef741-5c15-45f4-b9d2-4e5a808e6a3a",
+      "name": "Merge",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "task": "MDE3NzkzMDAzMTk2ODY2NjA1MDE6MDow",
+        "returnAll": true,
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.googleTasks",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        128
+      ],
+      "id": "344bca56-e40f-44ff-abb1-d14ef949a4e3",
+      "name": "Get many tasks",
+      "credentials": {
+        "googleTasksOAuth2Api": {
+          "id": "S0rouAtQtTlhm4Fp",
+          "name": "Google Tasks account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "ibnmo21@gmail.com",
+        "subject": "Your Daily overview",
+        "message": "={{\n  `\n🌞 <b>Good Morning!</b><br><br>\nHere’s your <b>Daily Summary</b> for today:<br><br>\n\n🗓️ <b>Upcoming Events</b><br>\n${($json.events && $json.events.length)\n  ? $json.events.map(e => `• <b>${e.title}</b><br>&nbsp;&nbsp;🕒 ${e.start} → ${e.end}`).join(\"<br><br>\")\n  : \"No events scheduled for today.\"}\n<br><br>\n\n✅ <b>Your Tasks</b><br>\n${($json.tasks && $json.tasks.length)\n  ? $json.tasks.map(t => `• <b>${t.title}</b> — ${t.status}`).join(\"<br>\")\n  : \"No tasks found for today.\"}\n<br><br>\n\n<hr>\n<p style=\"font-size:12px;color:gray;\">Sent automatically by your Daily Planner Workflow 💼</p>\n`\n}}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        880,
+        -112
+      ],
+      "id": "8fbad804-6f8e-4d0a-8597-1a9c0078daa2",
+      "name": "Send a message",
+      "webhookId": "b2bb31b9-2659-4d9f-9e7f-84a0e53eb3af",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "vPQXZD7pLFST2ivG",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "ibrahimali.wr@gmail.com",
+          "mode": "list",
+          "cachedResultName": "ibrahimali.wr@gmail.com"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $now.minus({ days: 7 }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        -32,
+        -64
+      ],
+      "id": "d5d24119-65a2-4d12-b644-336b357cad33",
+      "name": "Get many events",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "QtiyPdIKkbp7R8sa",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "You are my personal daily assistant.\nYou will receive a list of today’s events and tasks from my Google Calendar and Google Tasks.\nYour job is to:\n\nRead and understand all the events and tasks.\n\nSummarize them into a clear, structured daily plan.\n\nIdentify priorities, deadlines, and any overlapping schedules.\n\nSuggest the best order to complete tasks efficiently.\n\nGive friendly reminders or smart suggestions if something looks urgent or missing.\n\nAlways respond in a structured format like:\nMorning: …\nAfternoon: …\nEvening: …\nTop Priorities: …\nRecommendations: …”",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        592,
+        -128
+      ],
+      "id": "451bec11-97ef-4914-89b5-993439bd2ec2",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        560,
+        128
+      ],
+      "id": "48bcbeb1-be59-488d-afaf-740a423ecfde",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "mbciajenAXOfBRzt",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "={{\n  {\n    date: new Date().toLocaleDateString(),\n    summaryContext: {\n      events: $json.events?.map(e => ({\n        title: e.title,\n        start: e.start,\n        end: e.end\n      })) || [],\n      tasks: $json.tasks?.map(t => ({\n        title: t.title,\n        status: t.status\n      })) || [],\n    },\n    tone: \"motivational and positive — like a productivity coach encouraging daily success\",\n    instructions: \"Use this memory to craft warm, motivating summaries of my day, including my schedule and task list.\"\n  }\n}}\n",
+        "sessionKey": ""
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        656,
+        128
+      ],
+      "id": "778a29f0-13a1-4fc7-8282-551f165f63a4",
+      "name": "Simple Memory"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get many tasks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get many events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many tasks": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Get many events": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c33a4bb7-c626-400f-ad23-43896e09d542",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "61c774ede5793042e20882f364245cb7149e465d654fef54466da36d9507a9b9"
+  },
+  "id": "oXr4VlV43GkvKU8C",
+  "tags": []
+}
